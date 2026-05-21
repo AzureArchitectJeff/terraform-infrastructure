@@ -17,48 +17,13 @@ This project demonstrates **production-ready AWS infrastructure** using Terrafor
 | **Web Server Cluster** | Auto Scaling Group + ALB + EC2 instances |
 
 ## 🏗️ Architecture Diagram
-┌─────────────────┐
-│ INTERNET │
-└────────┬────────┘
-│
-▼
-┌─────────────────┐
-│ AWS ALB │
-│ (Port 80) │
-└────────┬────────┘
-│
-▼
-┌─────────────────┐
-│ AUTO SCALING │
-│ GROUP │
-│ (2-10 nodes) │
-└────────┬────────┘
-│
-┌────────────────────────┼────────────────────────┐
-│ │ │
-▼ ▼ ▼
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│ EC2 #1 │ │ EC2 #2 │ │ EC2 #3 │
-│ Web Server │ │ Web Server │ │ Web Server │
-│ (busybox) │ │ (busybox) │ │ (busybox) │
-└──────┬──────┘ └──────┬──────┘ └──────┬──────┘
-│ │ │
-└────────────────────────┼────────────────────────┘
-│
-▼
-┌─────────────────┐
-│ AWS RDS │
-│ MySQL DB │
-└────────┬────────┘
-│
-▼
-┌─────────────────┐
-│ S3 BUCKET │
-│ + DynamoDB │
-│ (State + Lock) │
-└─────────────────┘
 
-text
+flowchart TD
+    A[Internet] --> B[ALB :80]
+    B --> C[Auto Scaling Group]
+    C --> D[EC2 Instances]
+    D --> E[RDS MySQL]
+    E --> F[S3 + DynamoDB]
 
 ## 🏆 Skills Demonstrated
 
