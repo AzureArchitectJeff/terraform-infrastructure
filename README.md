@@ -18,12 +18,18 @@ This project demonstrates **production-ready AWS infrastructure** using Terrafor
 
 ## 🏗️ Architecture Diagram
 
+```mermaid
 flowchart TD
-    A[Internet] --> B[ALB :80]
-    B --> C[Auto Scaling Group]
-    C --> D[EC2 Instances]
-    D --> E[RDS MySQL]
-    E --> F[S3 + DynamoDB]
+    User[Internet User] --> ALB[Application Load Balancer<br/>Port 80]
+    ALB --> ASG[Auto Scaling Group<br/>2-10 EC2 Instances]
+    ASG --> EC1[EC2 Instance #1<br/>busybox httpd]
+    ASG --> EC2[EC2 Instance #2<br/>busybox httpd]
+    ASG --> EC3[EC2 Instance #3<br/>busybox httpd]
+    EC1 --> RDS[(RDS MySQL Database)]
+    EC2 --> RDS
+    EC3 --> RDS
+    RDS --> State[S3 Bucket + DynamoDB<br/>Remote State + Locking]
+```
 
 ## 🏆 Skills Demonstrated
 
@@ -37,30 +43,20 @@ flowchart TD
 | **Load Balancing** | Application Load Balancer with health checks |
 
 ## 📁 Project Structure
-terraform-project/
-├── global/
-│ └── s3/ # Shared state storage (run FIRST)
-│ └── main.tf # S3 bucket + DynamoDB
-│
-├── stage/
-│ ├── data-stores/
-│ │ └── mysql/ # Database component (run SECOND)
-│ │ ├── main.tf # RDS instance
-│ │ ├── outputs.tf # DB address & port
-│ │ └── variables.tf # Credentials (sensitive)
-│ │
-│ └── services/
-│ └── webserver-cluster/ # Web app (run THIRD)
-│ ├── main.tf # ALB + ASG + EC2
-│ └── user-data.sh # EC2 bootstrap script
-│
-└── prod/ # Production (same structure, separate state)
-├── data-stores/
-│ └── mysql/
-└── services/
-└── webserver-cluster/
 
-text
+**Deploy in this order:**
+
+1. `global/s3/` → State storage (S3 + DynamoDB)
+2. `stage/data-stores/mysql/` → Database (RDS)
+3. `stage/services/webserver-cluster/` → Web servers (ALB + ASG)
+
+**Production ready:** `prod/` folder mirrors `stage/` for production deployment
+
+**Key files:**
+- `main.tf` - Infrastructure resources
+- `outputs.tf` - Exported values (DB address, ALB DNS)
+- `variables.tf` - Input variables
+- `user-data.sh` - EC2 bootstrap script
 
 ## 🚀 Quick Start
 
@@ -71,33 +67,32 @@ text
 - SSH key pair named `terraform-key` in AWS EC2
 
 ### 1. Set Database Credentials
+```Bash
+# Step 1: Set your database password (type this exactly)
+export TF_VAR_db_username="admin"
+export TF_VAR_db_password="MyPass123"
 
-```bash
-export TF_VAR_db_username="your_username"
-export TF_VAR_db_password="your_strong_password"
-2. Deploy State Storage (Run Once)
+# Step 2: Go to the state storage folder
+cd ~/terraform-project/global/s3
 
-bash
-cd global/s3
+# Step 3: Deploy state storage
 terraform init
 terraform apply
-3. Deploy Database
 
-bash
-cd ../../stage/data-stores/mysql
+# Step 4: Go to database folder
+cd ~/terraform-project/stage/data-stores/mysql
+
+# Step 5: Deploy database
 terraform init
 terraform apply
-4. Deploy Web Server Cluster
 
-bash
-cd ../../services/webserver-cluster
+# Step 6: Go to web server folder
+cd ~/terraform-project/stage/services/webserver-cluster
+
+# Step 7: Deploy web server
 terraform init
 terraform apply
-5. Get the Load Balancer URL
 
-bash
+# Step 8: Get your website URL
 terraform output alb_dns_name
-Open in browser to see:
-
-"Hello, World"
-Database address and port
+```
