@@ -19,6 +19,17 @@ provider "aws" {
   region = "us-east-2"
 }
 
+variable "db_username" {
+  description = "The username for the database"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_password" {
+  description = "The password for the database"
+  type        = string
+  sensitive   = true
+}
 
 resource "aws_db_instance" "example" {
   identifier_prefix = "terraform-up-and-running"
@@ -39,7 +50,12 @@ resource "aws_db_instance" "example" {
   }
 }
 
-output "alb_dns_name" {
-  description = "The DNS name of the load balancer"
-  value       = aws_lb.example.dns_name
+output "address" {
+  value       = aws_db_instance.example.address
+  description = "Connect to the database at this endpoint"
+}
+
+output "port" {
+  value       = aws_db_instance.example.port
+  description = "The port the database is listening on"
 }

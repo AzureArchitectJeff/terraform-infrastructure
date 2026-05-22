@@ -1,7 +1,7 @@
 terraform {
   backend "s3" {
     bucket         = "aws-cloud-networks-storage"
-    key            = "stage/services/webserver-cluster/terraform.tfstate"
+    key            = "prod/services/webserver-cluster/terraform.tfstate"
     region         = "us-east-2"
     use_lockfile   = true
     encrypt        = true
@@ -65,7 +65,7 @@ data "terraform_remote_state" "db" {
   backend = "s3"
   config = {
     bucket = "aws-cloud-networks-storage"
-    key    = "stage/data-stores/mysql/terraform.tfstate"
+    key    = "prod/data-stores/mysql/terraform.tfstate"
     region = "us-east-2"
   }
 }
@@ -182,7 +182,3 @@ resource "aws_autoscaling_group" "example" {
   }
 }
 
-output "alb_dns_name" {
-  description = "The DNS name of the load balancer"
-  value       = aws_lb.example.dns_name
-}
