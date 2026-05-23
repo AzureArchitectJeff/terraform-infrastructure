@@ -1,4 +1,27 @@
+# ============================================
+# TERRAFORM CONFIGURATION
+# ============================================
+terraform {
+  required_version = ">= 1.0.0, < 2.0.0"
 
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 4.0"
+    }
+  }
+}
+
+# ============================================
+# PROVIDER CONFIGURATION
+# ============================================
+provider "aws" {
+  region = "us-east-2"
+}
+
+# ============================================
+# LOCALS (Computed values)
+# ============================================
 locals {
   http_port     = 80
   any_port      = 0
@@ -7,7 +30,11 @@ locals {
   all_ips       = ["0.0.0.0/0"]
 }
 
-# Read the database outputs from its state file
+# ============================================
+# DATA SOURCES
+# ============================================
+
+# Read database outputs from its state file
 data "terraform_remote_state" "db" {
   backend = "s3"
   config = {
@@ -17,37 +44,59 @@ data "terraform_remote_state" "db" {
   }
 }
 
-
-variable "server_port" {
-  description = "The port the server will use for HTTP requests"
-  type        = number
-  default     = 8080
+# Find the default VPC
+data "aws_vpc" "default" {
+  default = true
 }
+
+# Find subnets in the default VPC
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+  filter {
+    name   = "availability-zone"
+    values = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"]
+  }
+}
+
+# ============================================
+# RESOURCES
+# ============================================
 
 # Security group for EC2 instances
 resource "aws_security_group" "instance" {
   name = "${var.cluster_name}-instance"
 
-  # Web traffic from anywhere (port 8080)
+  # Web traffic from anywhere
   ingress {
     from_port   = var.server_port
     to_port     = var.server_port
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = local.all_ips
   }
-  # SSH access from your IP only (ADD THIS)
+
+  # SSH access from specific IP only
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["42.116.136.78/32"] # Your specific IP
+    cidr_blocks = [var.ssh_allowed_ip]
   }
 
+  # Allow all outbound traffic
+  egress {
+    from_port   = local.any_port
+    to_port     = local.any_port
+    protocol    = local.any_protocol
+    cidr_blocks = local.all_ips
+  }
 }
 
 # Security group for load balancer
 resource "aws_security_group" "alb" {
-  name = "${var.cluster_name}-alb""
+  name = "${var.cluster_name}-alb"
 
   # Allow inbound HTTP requests from anywhere
   ingress {
@@ -61,16 +110,15 @@ resource "aws_security_group" "alb" {
   egress {
     from_port   = local.any_port
     to_port     = local.any_port
-    protocol    = local.any_port
-    cidr_blocks = ["0.0.0.0/0"]
+    protocol    = local.any_protocol
+    cidr_blocks = local.all_ips
   }
 }
 
-
-
+# Launch template (modern replacement for launch configuration)
 resource "aws_launch_template" "example" {
-  name_prefix   = "terraform-example-"
-  image_id      = "ami-0c7217cdde317cfec" # Ubuntu 22.04
+  name_prefix   = "${var.cluster_name}-"
+  image_id      = var.ami_id
   instance_type = var.instance_type
   key_name      = "terraform-key"
 
@@ -85,29 +133,12 @@ resource "aws_launch_template" "example" {
   tag_specifications {
     resource_type = "instance"
     tags = {
-      Name = "terraform-asg-example"
+      Name = var.cluster_name
     }
   }
 
   lifecycle {
     create_before_destroy = true
-  }
-}
-
-# Find the default VPC
-data "aws_vpc" "default" {
-  default = true
-}
-
-# Find all subnets in that VPC
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-  filter {
-    name   = "availability-zone"
-    values = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1f"]
   }
 }
 
@@ -122,7 +153,7 @@ resource "aws_lb" "example" {
 # Listener - listens on port 80
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.example.arn
-  port              = 80
+  port              = local.http_port
   protocol          = "HTTP"
 
   # Default response if no rules match
@@ -154,7 +185,7 @@ resource "aws_lb_target_group" "asg" {
   }
 }
 
-# Listener Rule
+# Listener Rule - forwards all traffic to target group
 resource "aws_lb_listener_rule" "asg" {
   listener_arn = aws_lb_listener.http.arn
   priority     = 100
@@ -171,10 +202,11 @@ resource "aws_lb_listener_rule" "asg" {
   }
 }
 
+# Auto Scaling Group
 resource "aws_autoscaling_group" "example" {
   vpc_zone_identifier = data.aws_subnets.default.ids
-  target_group_arns   = [aws_lb_target_group.asg.arn] # ← ADD THIS LINE
-  health_check_type   = "ELB"                         # ← ADD THIS LINE (optional but recommended)
+  target_group_arns   = [aws_lb_target_group.asg.arn]
+  health_check_type   = "ELB"
 
   min_size = var.min_size
   max_size = var.max_size
@@ -189,15 +221,4 @@ resource "aws_autoscaling_group" "example" {
     value               = var.cluster_name
     propagate_at_launch = true
   }
-}
-
-output "asg_name" {
-  description = "The name of the Auto Scaling Group"
-  value       = aws_autoscaling_group.example.name
-}
-
-
-output "alb_dns_name" {
-  description = "The DNS name of the load balancer"
-  value       = aws_lb.example.dns_name
 }

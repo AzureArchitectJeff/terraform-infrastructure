@@ -7,3 +7,9 @@ output "port" {
   value       = aws_db_instance.example.port
   description = "The port the database is listening on"
 }
+
+# Extra output that's sometimes helpful
+output "db_name" {
+  value       = aws_db_instance.example.db_name
+  description = "The name of the database"
+}

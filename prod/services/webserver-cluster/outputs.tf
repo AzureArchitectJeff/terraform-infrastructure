@@ -1,29 +1,23 @@
 # ============================================
-# OUTPUT VALUES FROM WEB CLUSTER MODULE
+# OUTPUTS FOR PRODUCTION WEBSERVER CLUSTER
 # ============================================
 
 output "alb_dns_name" {
+  value       = module.webserver_cluster.alb_dns_name
   description = "The domain name of the load balancer"
-  value       = aws_lb.example.dns_name
 }
 
 output "asg_name" {
+  value       = module.webserver_cluster.asg_name
   description = "The name of the Auto Scaling Group"
-  value       = aws_autoscaling_group.example.name
 }
 
 output "alb_security_group_id" {
+  value       = module.webserver_cluster.alb_security_group_id
   description = "The ID of the Security Group attached to the load balancer"
-  value       = aws_security_group.alb.id
 }
 
-# Optional extras - good to have for flexibility
 output "instance_security_group_id" {
+  value       = module.webserver_cluster.instance_security_group_id
   description = "The ID of the Security Group attached to the EC2 instances"
-  value       = aws_security_group.instance.id
-}
-
-output "target_group_arn" {
-  description = "The ARN of the target group (useful for CloudWatch alarms)"
-  value       = aws_lb_target_group.asg.arn
 }
